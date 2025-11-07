@@ -62,10 +62,73 @@ input[type="color"].active {
 }
 
 
+.main-content {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  width: 100%;
+  justify-content: center;
+}
+
+
+.user-list-container {
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 10px 20px;
+  min-width: 150px;
+  height: fit-content;
+}
+.user-list-container h3 {
+  margin-top: 0;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #eee;
+}
+#user-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+#user-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+
+.color-swatch {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid #555;
+}
+
+
+.canvas-container {
+  position: relative;
+  width: 800px;
+  height: 600px;
+}
+
+#drawing-canvas,
+#cursor-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-color: transparent;
+}
+
 #drawing-canvas {
   background-color: #ffffff;
   border: 2px solid #333;
   border-radius: 5px;
   cursor: crosshair;
+  z-index: 1; /* Drawing canvas is at the bottom */
 }
 
+#cursor-canvas {
+  z-index: 2;
+  pointer-events: none;
+}
