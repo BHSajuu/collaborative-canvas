@@ -1,5 +1,6 @@
 "use strict";
 /// <reference types="socket.io-client" />
+const CANVAS_BACKGROUND = '#FFFFFF';
 window.addEventListener('load', () => {
     const socket = io();
     socket.on('connect', () => {
@@ -10,7 +11,8 @@ window.addEventListener('load', () => {
     const colorPicker = document.getElementById('color-picker');
     const strokeWidth = document.getElementById('stroke-width');
     const strokeValue = document.getElementById('stroke-value');
-    if (!canvas || !colorPicker || !strokeWidth || !strokeValue) {
+    const eraserTool = document.getElementById('eraser-tool');
+    if (!canvas || !colorPicker || !strokeWidth || !strokeValue || !eraserTool) {
         console.error('Failed to find one or more UI elements');
         return;
     }
@@ -26,9 +28,37 @@ window.addEventListener('load', () => {
     let isDrawing = false;
     let lastX = 0;
     let lastY = 0;
+    let currentTool = 'brush';
+    let lastBrushColor = colorPicker.value;
+    colorPicker.classList.add('active');
     // Update stroke width display
     strokeWidth.addEventListener('input', (e) => {
         strokeValue.textContent = e.target.value;
+    });
+    // Tool Switching Logic
+    function setActiveTool(tool) {
+        currentTool = tool;
+        if (tool === 'brush') {
+            eraserTool.classList.remove('active');
+            colorPicker.classList.add('active');
+            colorPicker.value = lastBrushColor;
+        }
+        else if (tool === 'eraser') {
+            colorPicker.classList.remove('active');
+            eraserTool.classList.add('active');
+        }
+    }
+    // Switch to brush when color is clicked/changed
+    colorPicker.addEventListener('input', () => {
+        lastBrushColor = colorPicker.value;
+        setActiveTool('brush');
+    });
+    colorPicker.addEventListener('click', () => {
+        setActiveTool('brush');
+    });
+    // Switch to eraser when clicked
+    eraserTool.addEventListener('click', () => {
+        setActiveTool('eraser');
     });
     /**
      * This function performs the actual drawing on the canvas.
@@ -56,13 +86,21 @@ window.addEventListener('load', () => {
             return;
         const x = e.offsetX;
         const y = e.offsetY;
+        // Determine color based on tool
+        let drawColor;
+        if (currentTool === 'brush') {
+            drawColor = colorPicker.value;
+        }
+        else {
+            drawColor = CANVAS_BACKGROUND;
+        }
         // 1. Create the data packet
         const drawData = {
             fromX: lastX,
             fromY: lastY,
             toX: x,
             toY: y,
-            color: colorPicker.value,
+            color: drawColor,
             lineWidth: parseInt(strokeWidth.value, 10),
         };
         // 2. Draw locally for immediate feedback
