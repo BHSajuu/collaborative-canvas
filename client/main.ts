@@ -1,6 +1,6 @@
 /// <reference types="socket.io-client" />
 
-// Define the same data type as the server
+
 interface DrawEventData {
   fromX: number;
   fromY: number;
@@ -50,7 +50,7 @@ window.addEventListener('load', () => {
 
   /**
    * This function performs the actual drawing on the canvas.
-   * It's called by *both* the local mouse events and the server socket events.
+   * It's called by both the local mouse events and the server socket events.
    */
   function performDraw(data: DrawEventData) {
     if(!ctx) return;
@@ -100,9 +100,18 @@ window.addEventListener('load', () => {
   function stopDrawing() {
     isDrawing = false;
   }
+ 
+  // Listen for the complete history from the server
+  socket.on('load-history', (history: DrawEventData[]) => {
+    console.log(`Received history with ${history.length} events`);
+    // Draw every event in the history
+    for (const data of history) {
+      performDraw(data);
+    }
+  });
 
-  //  Socket Event Listener 
-  // Listen for drawing events from *other* users
+ 
+  // Listen for drawing events from other users
   socket.on('draw-event', (data: DrawEventData) => {
     console.log('Received draw event from server');
     performDraw(data);
