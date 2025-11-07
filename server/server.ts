@@ -20,6 +20,15 @@ interface DrawEventData {
   lineWidth: number;
 }
 
+// Action-based History
+// A "DrawAction" is a single stroke (mousedown to mouseup)
+// It contains all the small segments that make it up.
+interface DrawAction {
+  id: string; 
+  events: DrawEventData[];
+}
+
+
  // User state and cursor types
 interface User {
   id: string;
@@ -31,12 +40,18 @@ interface CursorMoveData {
   y: number;
 }
 
-// This will store every drawing event in order
-const drawingHistory: DrawEventData[] = [];
+// Refactored Server State
+const actionHistory: DrawAction[] = [];
 
+// This stack stores undone actions
+const redoStack: DrawAction[] = [];
+
+// This maps a socket ID to the action they are *currently* drawing
+const activeActions = new Map<string, DrawAction>();
 
 // Stores the state of all connected users
 const activeUsers = new Map<string, User>();
+
 // Simple array of colors to assign to new users
 const userColors = [
   '#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF', '#33FFF6', '#FF3333', '#FFCC33', '#33CCFF','#3333FF', '#6633FF', '#FF3366', '#FF9999','#FF66CC', '#6699FF',
@@ -51,6 +66,14 @@ app.use(express.static(clientPath));
 app.get('/', (req, res) => {
   res.sendFile(path.join(clientPath, 'index.html'));
 });
+
+
+// Helper function to send the full state
+// This is the only way state is sent now. It guarantees consistency.
+function broadcastFullState() {
+  io.emit('global-redraw', actionHistory);
+}
+
 
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
@@ -77,17 +100,63 @@ io.on('connection', (socket) => {
   
   socket.broadcast.emit('new-user-connected', newUser);
  
-  // A new user has connected. Send them the entire drawing history.
-  socket.emit('load-history', drawingHistory);
+  // Send the full state on connect 
+  socket.emit('global-redraw', actionHistory);
 
-  // Listen for drawing events from a client
+   
+  // Listen for start/stop drawing 
+  socket.on('start-drawing', (startEvent: DrawEventData) => {
+    const newAction: DrawAction = {
+      id: `${socket.id}-${Date.now()}`,
+      events: [startEvent], // Start the action with its first event
+    };
+    activeActions.set(socket.id, newAction);
+    // Also broadcast this first point so it's "live"
+    socket.broadcast.emit('draw-event', startEvent);
+  });
+  
+  socket.on('stop-drawing', () => {
+    const action = activeActions.get(socket.id);
+    if (action) {
+      // Move from "active" to "history"
+      actionHistory.push(action);
+      activeActions.delete(socket.id);
+      
+      // Clear the redo stack, since a new action breaks the redo chain
+      redoStack.length = 0;
+    }
+  });
+
+
+ //  'draw-event' now adds to an active action 
   socket.on('draw-event', (data: DrawEventData) => {
-    // Add the new drawing event to our history
-    drawingHistory.push(data);
-    // Broadcast the event to all other clients
+    // Add to the active action
+    const action = activeActions.get(socket.id);
+    if (action) {
+      action.events.push(data);
+    }
+    // Broadcast for live-drawing
     socket.broadcast.emit('draw-event', data);
   });
   
+  // Undo/Redo Logic
+  socket.on('undo', () => {
+    if (actionHistory.length > 0) {
+      const actionToUndo = actionHistory.pop()!;
+      redoStack.push(actionToUndo);
+      // Now, tell everyone to redraw the entire canvas
+      broadcastFullState();
+    }
+  });
+
+  socket.on('redo', () => {
+    if (redoStack.length > 0) {
+      const actionToRedo = redoStack.pop()!;
+      actionHistory.push(actionToRedo);
+      // Tell everyone to redraw
+      broadcastFullState();
+    }
+  });
 
   // Cursor Move Logic 
   socket.on('cursor-move', (data: CursorMoveData) => {

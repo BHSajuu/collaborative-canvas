@@ -10,6 +10,11 @@ interface DrawEventData {
   lineWidth: number;
 }
 
+interface DrawAction {
+  id: string;
+  events: DrawEventData[];
+}
+
 interface User {
   id: string;
   color: string;
@@ -39,9 +44,10 @@ window.addEventListener('load', () => {
   const eraserTool = document.getElementById('eraser-tool') as HTMLButtonElement;
   const cursorCanvas = document.getElementById('cursor-canvas') as HTMLCanvasElement;
   const userList = document.getElementById('user-list') as HTMLUListElement;
+  const undoButton = document.getElementById('undo-button') as HTMLButtonElement;
+  const redoButton = document.getElementById('redo-button') as HTMLButtonElement;
 
-
- if (!canvas || !colorPicker || !strokeWidth || !strokeValue || !eraserTool || !cursorCanvas || !userList) { 
+ if (!canvas || !colorPicker || !strokeWidth || !strokeValue || !eraserTool || !cursorCanvas || !userList || !undoButton || !redoButton) { 
     console.error('Failed to find one or more UI elements');
     return;
   }
@@ -176,22 +182,12 @@ window.addEventListener('load', () => {
 
 
   //  Local Event Handlers 
-  function startDrawing(e: MouseEvent) {
-    isDrawing = true;
-    [lastX, lastY] = [e.offsetX, e.offsetY];
-  }
-
-  function draw(e: MouseEvent) {
-    if (!isDrawing) return;
-    
+function getDrawData(e: MouseEvent): DrawEventData {
     const x = e.offsetX;
     const y = e.offsetY;
+    let drawColor = (currentTool === 'brush') ? colorPicker.value : CANVAS_BACKGROUND;
     
-    // Determine color based on tool
-   let drawColor = (currentTool === 'brush') ? colorPicker.value : CANVAS_BACKGROUND;
-
-    // 1. Create the data packet
-    const drawData: DrawEventData = {
+    const data: DrawEventData = {
       fromX: lastX,
       fromY: lastY,
       toX: x,
@@ -199,24 +195,53 @@ window.addEventListener('load', () => {
       color: drawColor,
       lineWidth: parseInt(strokeWidth.value, 10),
     };
+    [lastX, lastY] = [x, y]; 
+    return data;
+  }
 
-    // 2. Draw locally for immediate feedback
+  function startDrawing(e: MouseEvent) {
+    isDrawing = true;
+    [lastX, lastY] = [e.offsetX, e.offsetY];
+    
+    // Create a "dummy" event to send on start 
+    // This allows the server to create the action
+    const startEventData: DrawEventData = {
+      fromX: lastX,
+      fromY: lastY,
+      toX: lastX,
+      toY: lastY,
+      color: (currentTool === 'brush') ? colorPicker.value : CANVAS_BACKGROUND,
+      lineWidth: parseInt(strokeWidth.value, 10),
+    };
+    
+    //  Tell server we are starting a new action
+    socket.emit('start-drawing', startEventData);
+    
+    //  Draw the first "dot" locally
+    performDraw(startEventData);
+  }
+
+  function draw(e: MouseEvent) {
+    if (!isDrawing) return;
+    
+    const drawData = getDrawData(e);
+
+    // Draw locally for immediate feedback
     performDraw(drawData);
 
-    // 3. Send the data packet to the server
+    //  Send the event packet to the server
     socket.emit('draw-event', drawData);
-
-    // Update last position
-    [lastX, lastY] = [x, y];
   }
 
   function stopDrawing() {
+    if (!isDrawing) return;
     isDrawing = false;
+    //  Tell server we finished
+    socket.emit('stop-drawing');
   }
- 
+
 
   // Socket Event Listeners 
-  
   socket.on('connect', () => {
     console.log('Connected to server with ID:', socket.id);
   });
@@ -253,31 +278,46 @@ window.addEventListener('load', () => {
     }
   });
 
-  // Listen for the complete history from the server
-  socket.on('load-history', (history: DrawEventData[]) => {
-    console.log(`Received history with ${history.length} events`);
-    // Draw every event in the history
-    for (const data of history) {
-      performDraw(data);
-    }
-  });
 
- 
   // Listen for drawing events from other users
-  socket.on('draw-event', (data: DrawEventData) => {
-    console.log('Received draw event from server');
+ socket.on('draw-event', (data: DrawEventData) => {
     performDraw(data);
   });
 
-  //  Attach Local Listeners 
+  // The core of the undo/redo
+  socket.on('global-redraw', (history: DrawAction[]) => {
+    console.log(`Global redraw. Re-playing ${history.length} actions.`);
+    
+    //  Clear the entire canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Loop through every action and every event and redraw
+    for (const action of history) {
+      for (const event of action.events) {
+        performDraw(event);
+      }
+    }
+  });
+
+  /// --- Attach Local Listeners ---
   canvas.addEventListener('mousedown', startDrawing);
   canvas.addEventListener('mousemove', (e: MouseEvent) => {
-    // Always emit cursor move
     socket.emit('cursor-move', { x: e.offsetX, y: e.offsetY });
-    // Only draw if mouse is down
     draw(e); 
   });
   canvas.addEventListener('mouseup', stopDrawing);
-  canvas.addEventListener('mouseout', stopDrawing);
+  canvas.addEventListener('mouseout', (e: MouseEvent) => {
+    stopDrawing();
+    // Also emit a final cursor move to update position
+    socket.emit('cursor-move', { x: e.offsetX, y: e.offsetY }); 
+  });
   
+  
+  undoButton.addEventListener('click', () => {
+    socket.emit('undo');
+  });
+  
+  redoButton.addEventListener('click', () => {
+    socket.emit('redo');
+  });
 });
