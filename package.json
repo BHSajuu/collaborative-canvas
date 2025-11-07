@@ -4,9 +4,12 @@
   "description": "",
   "main": "dist/server.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --project tsconfig.server.json && tsc --project tsconfig.client.json",
+    "build:server": "tsc --project tsconfig.server.json",
+    "build:client": "tsc --project tsconfig.client.json",
     "start": "node dist/server.js",
-    "dev": "nodemon server/server.ts"
+    "dev": "nodemon server/server.ts",
+    "watch:frontend": "tsc --project tsconfig.client.json --watch"
   },
   "keywords": [],
   "author": "",
@@ -14,12 +17,15 @@
   "type": "commonjs",
   "dependencies": {
     "express": "^5.1.0",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "undici-types": "^7.16.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.5",
     "@types/node": "^24.10.0",
     "@types/socket.io": "^3.0.1",
+    "@types/socket.io-client": "^1.4.36",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"

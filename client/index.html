@@ -8,6 +8,16 @@
 </head>
 <body>
   <h1>Real-Time Drawing Canvas</h1>
+  
+  <div class="toolbar">
+    <label for="color-picker">Color:</label>
+    <input type="color" id="color-picker" value="#000000">
+    
+    <label for="stroke-width">Width:</label>
+    <input type="range" id="stroke-width" min="1" max="50" value="5">
+    <span id="stroke-value">5</span>
+  </div>
+  
   <canvas id="drawing-canvas"></canvas>
   
   <script src="/socket.io/socket.io.js"></script>

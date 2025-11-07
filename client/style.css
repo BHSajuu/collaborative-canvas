@@ -11,6 +11,31 @@ h1 {
   font-weight: 300;
 }
 
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background-color: #fff;
+  padding: 10px 20px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  margin-bottom: 15px;
+}
+
+.toolbar label {
+  font-size: 14px;
+}
+
+.toolbar input[type="range"] {
+  vertical-align: middle;
+}
+
+#stroke-value {
+  font-size: 14px;
+  min-width: 20px;
+  text-align: right;
+}
+
 #drawing-canvas {
   background-color: #ffffff;
   border: 2px solid #333;

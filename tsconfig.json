@@ -1,14 +1,16 @@
 {
   "compilerOptions": {
     "target": "ES6",
-    "module": "commonjs",
+    "module": "NodeNext",
     "outDir": "./dist",
     "rootDir": "./",
     "strict": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
+    "moduleResolution": "NodeNext",
     "lib": ["DOM", "ES6"] 
   },
-  "include": ["server/**/*"],
-  "exclude": ["node_modules", "public"]
+  "include": ["server/**/*", "client/**/*"],
+  "exclude": ["node_modules"]
 }
