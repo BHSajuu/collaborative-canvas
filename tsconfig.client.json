@@ -7,11 +7,10 @@
     "moduleResolution": "node",
     "outDir": "./client",
     "rootDir": "./client",
-    "skipLibCheck": true,
+
     "resolvePackageJsonExports": false,
     "resolvePackageJsonImports": false
   },
   "include": ["client/**/*"],
   "exclude": ["node_modules", "dist", "server"]
 }
-
