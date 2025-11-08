@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import path from 'path';
 import {
   DrawEventData,
+  DrawAction,
   startUserAction,
   stopUserAction,
   addUserEvent,
@@ -48,19 +49,15 @@ app.get('/', (req, res) => {
 });
 
 
-/**
- * Helper function to send the full, current state to all clients.
- * This is the only way state is sent now. It guarantees consistency.
- */
-function broadcastFullState() {
-  io.emit('global-redraw', getActionHistory());
+// This function is now ONLY for new users
+function sendFullStateToSocket(socket: any) {
+  socket.emit('global-redraw', getActionHistory());
 }
 
 
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
    
-  
   // User Connection Logic
   const color = userColors[Math.floor(Math.random() * userColors.length)];
   const newUserName = `Guest`;
@@ -81,9 +78,8 @@ io.on('connection', (socket) => {
   
   socket.broadcast.emit('new-user-connected', newUser);
  
-  // Send the full state on connect 
-  socket.emit('global-redraw', getActionHistory());
-
+ // Send the full state ONCE to the new user
+  sendFullStateToSocket(socket);
    
   // Listen for start/stop drawing 
   socket.on('start-drawing', (startEvent: DrawEventData) => {
@@ -92,8 +88,13 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('draw-event', startEvent);
   });
   
-  socket.on('stop-drawing', () => {
-    stopUserAction(socket.id);
+ socket.on('stop-drawing', () => {
+    // Stop the action, which returns the committed action
+    const committedAction = stopUserAction(socket.id);
+    if (committedAction) {
+      // Broadcast the single committed action to all clients
+      io.emit('action-committed', committedAction);
+    }
   });
 
 
@@ -105,19 +106,19 @@ io.on('connection', (socket) => {
   });
   
   // Undo/Redo Logic
-  socket.on('undo', () => {
+ socket.on('undo', () => {
     const undoneAction = performUndo();
-    // Only broadcast if an action was actually undone
     if (undoneAction) {
-      broadcastFullState();
+      // Broadcast the ID of the undone action
+      io.emit('perform-undo', undoneAction.id);
     }
   });
 
-  socket.on('redo', () => {
+ socket.on('redo', () => {
     const redoneAction = performRedo();
-    // Only broadcast if an action was actually redone
     if (redoneAction) {
-      broadcastFullState();
+      // Broadcast the full action to be redone
+      io.emit('perform-redo', redoneAction);
     }
   });
 

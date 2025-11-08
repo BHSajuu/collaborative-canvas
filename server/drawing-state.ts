@@ -18,14 +18,12 @@ export interface DrawAction {
 }
 
 // Server State
-
 const actionHistory: DrawAction[] = [];
 const redoStack: DrawAction[] = [];
 const activeActions = new Map<string, DrawAction>();
 
 
 // State Management Functions
-
 /**
  * Creates a new, active drawing action for a user.
  */
@@ -40,6 +38,7 @@ export function startUserAction(socketId: string, startEvent: DrawEventData) {
 /**
  * Moves a user's active action into the permanent history.
  * This clears the redo stack.
+ * @returns The DrawAction that was just committed.
  */
 export function stopUserAction(socketId: string) {
   const action = activeActions.get(socketId);
@@ -50,6 +49,7 @@ export function stopUserAction(socketId: string) {
     
     // Clear the redo stack, since a new action breaks the redo chain
     redoStack.length = 0;
+    return action;
   }
 }
 

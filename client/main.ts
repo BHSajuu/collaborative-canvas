@@ -1,5 +1,5 @@
-import { DrawEventData, User, Cursor, Tool } from "./types.js";
-import { performDraw } from "./canvas.js";
+import { DrawEventData, User, Cursor, Tool, DrawAction } from "./types.js";
+import { ctx, canvas, performDraw } from "./canvas.js"; 
 import { 
   emitStartDrawing, 
   emitDrawEvent, 
@@ -15,7 +15,6 @@ const CANVAS_BACKGROUND = '#FFFFFF';
 window.addEventListener('load', () => {
 
   // Get UI Elements 
-  const canvas = document.getElementById('drawing-canvas') as HTMLCanvasElement;
   const colorPicker = document.getElementById('color-picker') as HTMLInputElement;
   const strokeWidth = document.getElementById('stroke-width') as HTMLInputElement;
   const strokeValue = document.getElementById('stroke-value') as HTMLSpanElement;
@@ -28,6 +27,16 @@ window.addEventListener('load', () => {
     console.error('Failed to find one or more UI elements');
     return;
   }
+  if (!ctx) {
+    console.error('Canvas context not found');
+    return;
+  }
+
+  // client state
+  let localActionHistory: DrawAction[] = [];
+  // This cache maps an Action ID to the canvas state after it was drawn
+  let stateCache = new Map<string, ImageData>();
+  const INITIAL_STATE_KEY = 'initial'; // Key for the blank canvas state
 
   // Drawing state
   let isDrawing = false;
@@ -42,16 +51,127 @@ window.addEventListener('load', () => {
 
   colorPicker.classList.add('active');
 
-  // Update stroke width display
+  //  STATE MANAGEMENT FUNCTIONS -
+  /**
+   * Clears canvas and redraws everything from the local history.
+   * This is a slow function used for initialization and cache misses.
+   * It also builds the state cache as it goes.
+   */
+  function buildCacheAndRedraw() {
+    console.log('Building cache and redrawing...');
+    if (!ctx) return;
+
+    // 1. Clear everything
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    stateCache.clear();
+
+    // 2. Save the blank, initial state
+    const initialState = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    stateCache.set(INITIAL_STATE_KEY, initialState);
+
+    // 3. Loop and redraw, saving a snapshot after *each action*
+    for (const action of localActionHistory) {
+      for (const event of action.events) {
+        performDraw(event);
+      }
+      // Save the state of the canvas *after* this action
+      const stateAfterAction = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      stateCache.set(action.id, stateAfterAction);
+    }
+  }
+
+  /**
+   * Called by websocket when a new user connects.
+   */
+  function setHistory(history: DrawAction[]) {
+    localActionHistory = history;
+    buildCacheAndRedraw();
+  }
+
+  /**
+   * Called by websocket when any user finishes a stroke.
+   */
+  function addCommittedAction(action: DrawAction) {
+    if (!ctx) return;
+    // The drawing already happened live, so just add to history
+    localActionHistory.push(action);
+    // Save a new snapshot
+    const newState = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    stateCache.set(action.id, newState);
+  }
+
+  /**
+   * Called by websocket on 'perform-undo'.
+   */
+  function undoActionById(actionId: string) {
+    if (!ctx) return;
+    
+    // 1. Find and remove the action from local history
+    localActionHistory = localActionHistory.filter(a => a.id !== actionId);
+    
+    // 2. Get the ID of the *previous* action to restore
+    const lastActionId = localActionHistory.length > 0 
+      ? localActionHistory[localActionHistory.length - 1].id 
+      : INITIAL_STATE_KEY;
+
+    // 3. Get the snapshot from our cache
+    const stateToRestore = stateCache.get(lastActionId);
+    
+    if (stateToRestore) {
+      // 4. Restore it instantly
+      console.log('Restoring from cache...');
+      ctx.putImageData(stateToRestore, 0, 0);
+    } else {
+      // 5. Cache miss (shouldn't happen, but good to have a fallback)
+      console.warn('Cache miss on undo. Rebuilding...');
+      buildCacheAndRedraw();
+    }
+  }
+
+  /**
+   * Called by websocket on 'perform-redo'.
+   */
+  function redoAction(action: DrawAction) {
+    if (!ctx) return;
+
+    // 1. Add the action back to our local history
+    localActionHistory.push(action);
+
+    // 2. Find the state *before* this action
+    const previousActionId = localActionHistory.length > 1
+      ? localActionHistory[localActionHistory.length - 2].id
+      : INITIAL_STATE_KEY;
+    
+    const prevState = stateCache.get(previousActionId);
+    
+    if (prevState) {
+      // 3. Restore the previous state
+      ctx.putImageData(prevState, 0, 0);
+      
+      // 4. Redraw only the redone action
+      for (const event of action.events) {
+        performDraw(event);
+      }
+      
+      // 5. Save a new snapshot for this redone action
+      const newState = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      stateCache.set(action.id, newState);
+
+    } else {
+      // 6. Cache miss
+      console.warn('Cache miss on redo. Rebuilding...');
+      buildCacheAndRedraw();
+    }
+  }
+
+  // UI Logic 
+  
   strokeWidth.addEventListener('input', (e) => {
     strokeValue.textContent = (e.target as HTMLInputElement).value;
   });
   
- 
-  // Tool Switching Logic
   function setActiveTool(tool: Tool) {
     currentTool = tool;
-    
     if (tool === 'brush') {
       eraserTool.classList.remove('active');
       colorPicker.classList.add('active');
@@ -61,8 +181,6 @@ window.addEventListener('load', () => {
       eraserTool.classList.add('active');
     }
   }
-
-  // Switch to brush when color is clicked/changed
   colorPicker.addEventListener('input', () => {
     lastBrushColor = colorPicker.value;
     setActiveTool('brush');
@@ -70,18 +188,12 @@ window.addEventListener('load', () => {
   colorPicker.addEventListener('click', () => {
     setActiveTool('brush');
   });
-
-  // Switch to eraser when clicked
   eraserTool.addEventListener('click', () => {
     setActiveTool('eraser');
   });
 
-
-  // UI Update Function 
   function updateUserListUI() {
     userList.innerHTML = ''; // Clear the list
-
-    // Add self
     if (selfUser) {
       const selfLi = document.createElement('li');
       selfLi.innerHTML = `
@@ -90,8 +202,6 @@ window.addEventListener('load', () => {
       `;
       userList.appendChild(selfLi);
     }
-
-    // Add others
     for (const [id, cursor] of cursors.entries()) {
       const otherLi = document.createElement('li');
       otherLi.innerHTML = `
@@ -102,8 +212,7 @@ window.addEventListener('load', () => {
     }
   }
 
-
-  //  Local Event Handlers 
+  //  Local Event Handlers
   function getDrawData(e: MouseEvent): DrawEventData {
       const x = e.offsetX;
       const y = e.offsetY;
@@ -124,8 +233,6 @@ window.addEventListener('load', () => {
   function startDrawing(e: MouseEvent) {
     isDrawing = true;
     [lastX, lastY] = [e.offsetX, e.offsetY];
-    
-    // Create a "dummy" event to send on start 
     const startEventData: DrawEventData = {
       fromX: lastX,
       fromY: lastY,
@@ -134,33 +241,22 @@ window.addEventListener('load', () => {
       color: (currentTool === 'brush') ? colorPicker.value : CANVAS_BACKGROUND,
       lineWidth: parseInt(strokeWidth.value, 10),
     };
-    
-    //  Tell server we are starting a new action
     emitStartDrawing(startEventData);
-    
-    //  Draw the first "dot" locally
     performDraw(startEventData);
   }
 
   function draw(e: MouseEvent) {
     if (!isDrawing) return;
-    
     const drawData = getDrawData(e);
-
-    // Draw locally for immediate feedback
     performDraw(drawData);
-
-    //  Send the event packet to the server
     emitDrawEvent(drawData);
   }
 
   function stopDrawing() {
     if (!isDrawing) return;
     isDrawing = false;
-    //  Tell server we finished
     emitStopDrawing();
   }
-
 
   ///  Attach Local Listeners 
   canvas.addEventListener('mousedown', startDrawing);
@@ -171,22 +267,16 @@ window.addEventListener('load', () => {
   canvas.addEventListener('mouseup', stopDrawing);
   canvas.addEventListener('mouseout', (e: MouseEvent) => {
     stopDrawing();
-    // Also emit a final cursor move to update position
     emitCursorMove(e.offsetX, e.offsetY); 
   });
-  
-  
   undoButton.addEventListener('click', () => {
     emitUndo();
   });
-  
   redoButton.addEventListener('click', () => {
     emitRedo();
   });
 
-
   //  Connect Modules 
-  // We provide functions to websocket.ts so it can update main.ts's state.
   function setSelfUser(user: User) {
     selfUser = user;
   }
@@ -194,6 +284,14 @@ window.addEventListener('load', () => {
     return cursors;
   }
 
-  // Start listening for all server events
-  registerSocketEvents(setSelfUser, getCursors, updateUserListUI);
+  // Start listening for all server events, providing our new state functions
+  registerSocketEvents(
+    setSelfUser, 
+    getCursors, 
+    updateUserListUI,
+    setHistory,
+    addCommittedAction,
+    undoActionById,
+    redoAction
+  );
 });
