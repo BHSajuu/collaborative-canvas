@@ -4,7 +4,6 @@ import { Server } from 'socket.io';
 import path from 'path';
 import {
   DrawEventData,
-  DrawAction,
   startUserAction,
   stopUserAction,
   addUserEvent,

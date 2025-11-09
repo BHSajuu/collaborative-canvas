@@ -213,9 +213,10 @@ window.addEventListener('load', () => {
   }
 
   //  Local Event Handlers
-  function getDrawData(e: MouseEvent): DrawEventData {
-      const x = e.offsetX;
-      const y = e.offsetY;
+  /**
+   * Creates a DrawEventData object from the current state.
+   */
+ function getDrawData(x: number, y: number): DrawEventData {
       let drawColor = (currentTool === 'brush') ? colorPicker.value : CANVAS_BACKGROUND;
       
       const data: DrawEventData = {
@@ -230,9 +231,13 @@ window.addEventListener('load', () => {
       return data;
   }
 
-  function startDrawing(e: MouseEvent) {
+  /**
+   * Starts a new drawing action at the given coordinates.
+   */
+  function startDrawing(x: number, y: number) {
     isDrawing = true;
-    [lastX, lastY] = [e.offsetX, e.offsetY];
+    [lastX, lastY] = [x, y];
+    
     const startEventData: DrawEventData = {
       fromX: lastX,
       fromY: lastY,
@@ -241,42 +246,106 @@ window.addEventListener('load', () => {
       color: (currentTool === 'brush') ? colorPicker.value : CANVAS_BACKGROUND,
       lineWidth: parseInt(strokeWidth.value, 10),
     };
+    
     emitStartDrawing(startEventData);
     performDraw(startEventData);
   }
 
-  function draw(e: MouseEvent) {
+ /**
+   * Continues a drawing action to the given coordinates.
+   */
+  function draw(x: number, y: number) {
     if (!isDrawing) return;
-    const drawData = getDrawData(e);
+    
+    const drawData = getDrawData(x, y);
     performDraw(drawData);
     emitDrawEvent(drawData);
   }
 
+  /**
+   * Stops the current drawing action.
+   */
   function stopDrawing() {
     if (!isDrawing) return;
     isDrawing = false;
     emitStopDrawing();
   }
+  
+  /**
+   * Gets the x/y coordinates of a touch event relative to the canvas.
+   */
+  function getTouchCoords(e: TouchEvent): { x: number, y: number } | null {
+    if (e.touches.length === 0) {
+      return null;
+    }
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    return { x, y };
+  }
 
-  ///  Attach Local Listeners 
-  canvas.addEventListener('mousedown', startDrawing);
+  //  ouch Event Handlers
+  function handleTouchStart(e: TouchEvent) {
+    // Prevent page scrolling while drawing
+    e.preventDefault();
+    const coords = getTouchCoords(e);
+    if (coords) {
+      startDrawing(coords.x, coords.y);
+    }
+  }
+  
+  function handleTouchMove(e: TouchEvent) {
+    e.preventDefault();
+    const coords = getTouchCoords(e);
+    if (coords) {
+      // Also emit cursor move for touch
+      emitCursorMove(coords.x, coords.y);
+      draw(coords.x, coords.y);
+    }
+  }
+  
+  function handleTouchEnd(e: TouchEvent) {
+    e.preventDefault();
+    stopDrawing();
+  }
+
+  // Attach Local Listeners
+
+  // Mouse Events
+  canvas.addEventListener('mousedown', (e: MouseEvent) => {
+    startDrawing(e.offsetX, e.offsetY);
+  });
+  
   canvas.addEventListener('mousemove', (e: MouseEvent) => {
     emitCursorMove(e.offsetX, e.offsetY);
-    draw(e); 
+    // We only call draw() if isDrawing is true
+    if (isDrawing) {
+      draw(e.offsetX, e.offsetY);
+    }
   });
+
   canvas.addEventListener('mouseup', stopDrawing);
-  canvas.addEventListener('mouseout', (e: MouseEvent) => {
-    stopDrawing();
-    emitCursorMove(e.offsetX, e.offsetY); 
-  });
+  canvas.addEventListener('mouseout', stopDrawing); // Treat mouseout as stop
+  
+  // Touch Events
+  canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+  canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+  canvas.addEventListener('touchend', handleTouchEnd);
+  canvas.addEventListener('touchcancel', handleTouchEnd); // Treat cancel as end
+
+
+  // Button Events 
   undoButton.addEventListener('click', () => {
     emitUndo();
   });
+  
   redoButton.addEventListener('click', () => {
     emitRedo();
   });
 
-  //  Connect Modules 
+
+  // Connect Modules
   function setSelfUser(user: User) {
     selfUser = user;
   }
@@ -284,7 +353,6 @@ window.addEventListener('load', () => {
     return cursors;
   }
 
-  // Start listening for all server events, providing our new state functions
   registerSocketEvents(
     setSelfUser, 
     getCursors, 
@@ -294,4 +362,7 @@ window.addEventListener('load', () => {
     undoActionById,
     redoAction
   );
+
+  // Save the initial blank state
+  buildCacheAndRedraw();
 });
