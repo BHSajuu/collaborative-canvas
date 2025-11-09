@@ -1,3 +1,7 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
+
+
 import express from 'express';
 import http from 'http';
 import { Server, Socket } from 'socket.io';
@@ -63,9 +67,10 @@ app.get('/', (req, res) => {
 app.use(express.static(clientPath));
 
 
-// This function now sends the history *for a specific room*
-function sendFullStateToSocket(socket: Socket, roomName: string) {
-  socket.emit('global-redraw', getActionHistory(roomName));
+// This function now sends the history for a specific room
+async function sendFullStateToSocket(socket: Socket, roomName: string) {
+  const history = await getActionHistory(roomName);
+  socket.emit('global-redraw', history);
 }
 
 // Define a type for our socket to track its room
@@ -106,41 +111,41 @@ io.on('connection', async (socket: SocketWithRoom) => {
   socket.broadcast.to(roomName).emit('new-user-connected', newUser);
  
 // Send the full state for this room
-  sendFullStateToSocket(socket, roomName);
+ await sendFullStateToSocket(socket, roomName);
    
   // Listen for start/stop drawing 
-  socket.on('start-drawing', (startEvent: DrawEventData) => {
+  socket.on('start-drawing', async (startEvent: DrawEventData) => {
     if (!socket.roomName) return;
-    startUserAction(socket.roomName, socket.id, startEvent);
+    await startUserAction(socket.roomName, socket.id, startEvent);
     socket.broadcast.to(socket.roomName).emit('draw-event', startEvent);
   });
   
- socket.on('stop-drawing', () => {
+ socket.on('stop-drawing', async() => {
     if (!socket.roomName) return;
-    const committedAction = stopUserAction(socket.roomName, socket.id);
+    const committedAction = await stopUserAction(socket.roomName, socket.id);
     if (committedAction) {
       // Broadcast to *everyone in the room* (including sender)
       io.to(socket.roomName).emit('action-committed', committedAction);
     }
   });
 
-  socket.on('draw-event', (data: DrawEventData) => {
+  socket.on('draw-event', async(data: DrawEventData) => {
     if (!socket.roomName) return;
-    addUserEvent(socket.roomName, socket.id, data);
+    await addUserEvent(socket.roomName, socket.id, data);
     socket.broadcast.to(socket.roomName).emit('draw-event', data);
   });
   
-  socket.on('undo', () => {
+  socket.on('undo', async () => {
     if (!socket.roomName) return;
-    const undoneAction = performUndo(socket.roomName);
+    const undoneAction = await performUndo(socket.roomName);
     if (undoneAction) {
       io.to(socket.roomName).emit('perform-undo', undoneAction.id);
     }
   });
 
-  socket.on('redo', () => {
+  socket.on('redo', async () => {
     if (!socket.roomName) return;
-    const redoneAction = performRedo(socket.roomName);
+    const redoneAction = await performRedo(socket.roomName);
     if (redoneAction) {
       io.to(socket.roomName).emit('perform-redo', redoneAction);
     }
