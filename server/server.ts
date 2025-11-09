@@ -1,6 +1,6 @@
 import express from 'express';
 import http from 'http';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import path from 'path';
 import {
   DrawEventData,
@@ -9,7 +9,8 @@ import {
   addUserEvent,
   performUndo,
   performRedo,
-  getActionHistory
+  getActionHistory,
+  clearActiveAction,
 } from './drawing-state';
 
 
@@ -41,100 +42,128 @@ const userColors = [
 
 // Serve static files from the client directory
 const clientPath = path.join(__dirname, '..', 'client');
-app.use(express.static(clientPath));
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(clientPath, 'index.html'));
+app.get('/api/rooms', (req, res) => {
+  const allRooms = io.sockets.adapter.rooms;
+  const publicRooms: string[] = [];
+
+  allRooms.forEach((socketIds, roomName) => {
+    if (!socketIds.has(roomName)) {
+      publicRooms.push(roomName);
+    }
+  });
+
+  res.json(publicRooms);
 });
 
+app.get('/', (req, res) => {
+  res.sendFile(path.join(clientPath, 'lobby.html'));
+});
 
-// This function is now ONLY for new users
-function sendFullStateToSocket(socket: any) {
-  socket.emit('global-redraw', getActionHistory());
+app.use(express.static(clientPath));
+
+
+// This function now sends the history *for a specific room*
+function sendFullStateToSocket(socket: Socket, roomName: string) {
+  socket.emit('global-redraw', getActionHistory(roomName));
 }
 
+// Define a type for our socket to track its room
+interface SocketWithRoom extends Socket {
+  roomName?: string;
+}
 
-io.on('connection', (socket) => {
+io.on('connection', async (socket: SocketWithRoom) => {
   console.log('A user connected:', socket.id);
-   
+  
+  //  Room Logic
+  const roomName = (socket.handshake.query.room as string) || 'default';
+  socket.roomName = roomName; // Store the room name on the socket
+  socket.join(roomName);
+  console.log(`User ${socket.id} joined room ${roomName}`);
+
   // User Connection Logic
   const color = userColors[Math.floor(Math.random() * userColors.length)];
   const newUserName = `Guest`;
-
-  const newUser: User = {
-    id: socket.id,
-    color: color,
-    name: newUserName,
-  };
-
+  const newUser: User = { id: socket.id, color: color, name: newUserName };
   activeUsers.set(socket.id, newUser);
 
-  // Send a 'welcome' event to the new user
-  socket.emit('welcome', {
-    self: newUser,
-    others: Array.from(activeUsers.values()).filter(u => u.id !== socket.id),
-  });
+  // --- NEW: Get users *only in the same room* ---
+  const socketsInRoom = await io.in(roomName).fetchSockets();
+  const socketIdsInRoom = new Set(socketsInRoom.map(s => s.id));
   
-  socket.broadcast.emit('new-user-connected', newUser);
+  const othersInRoom = Array.from(activeUsers.values()).filter(
+    user => socketIdsInRoom.has(user.id) && user.id !== socket.id
+  );
+
+  // Send a 'welcome' event to the new user
+ socket.emit('welcome', {
+    self: newUser,
+    others: othersInRoom,
+  });
+
+// Broadcast to everyone else in the room
+  socket.broadcast.to(roomName).emit('new-user-connected', newUser);
  
- // Send the full state ONCE to the new user
-  sendFullStateToSocket(socket);
+// Send the full state for this room
+  sendFullStateToSocket(socket, roomName);
    
   // Listen for start/stop drawing 
   socket.on('start-drawing', (startEvent: DrawEventData) => {
-    startUserAction(socket.id, startEvent);
-    // Also broadcast this first point so it's live
-    socket.broadcast.emit('draw-event', startEvent);
+    if (!socket.roomName) return;
+    startUserAction(socket.roomName, socket.id, startEvent);
+    socket.broadcast.to(socket.roomName).emit('draw-event', startEvent);
   });
   
  socket.on('stop-drawing', () => {
-    // Stop the action, which returns the committed action
-    const committedAction = stopUserAction(socket.id);
+    if (!socket.roomName) return;
+    const committedAction = stopUserAction(socket.roomName, socket.id);
     if (committedAction) {
-      // Broadcast the single committed action to all clients
-      io.emit('action-committed', committedAction);
+      // Broadcast to *everyone in the room* (including sender)
+      io.to(socket.roomName).emit('action-committed', committedAction);
     }
   });
 
-
- //  'draw-event' now adds to an active action 
   socket.on('draw-event', (data: DrawEventData) => {
-    addUserEvent(socket.id, data);
-    // Broadcast for live-drawing
-    socket.broadcast.emit('draw-event', data);
+    if (!socket.roomName) return;
+    addUserEvent(socket.roomName, socket.id, data);
+    socket.broadcast.to(socket.roomName).emit('draw-event', data);
   });
   
-  // Undo/Redo Logic
- socket.on('undo', () => {
-    const undoneAction = performUndo();
+  socket.on('undo', () => {
+    if (!socket.roomName) return;
+    const undoneAction = performUndo(socket.roomName);
     if (undoneAction) {
-      // Broadcast the ID of the undone action
-      io.emit('perform-undo', undoneAction.id);
+      io.to(socket.roomName).emit('perform-undo', undoneAction.id);
     }
   });
 
- socket.on('redo', () => {
-    const redoneAction = performRedo();
+  socket.on('redo', () => {
+    if (!socket.roomName) return;
+    const redoneAction = performRedo(socket.roomName);
     if (redoneAction) {
-      // Broadcast the full action to be redone
-      io.emit('perform-redo', redoneAction);
+      io.to(socket.roomName).emit('perform-redo', redoneAction);
     }
   });
 
-  // Cursor Move Logic 
   socket.on('cursor-move', (data: CursorMoveData) => {
-    // Broadcast this move to all other clients, including the sender's ID
-    socket.broadcast.emit('cursor-move', {
+    if (!socket.roomName) return;
+    socket.broadcast.to(socket.roomName).emit('cursor-move', {
       id: socket.id,
       ...data,
     });
   });
 
-
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
     activeUsers.delete(socket.id);
-    io.emit('user-disconnected', socket.id);
+    clearActiveAction(socket.id); // NEW
+    
+    // Broadcast disconnection to all rooms the user *might* have been in
+    // (A more robust solution would be to track all rooms a user is in)
+    if (socket.roomName) {
+      io.to(socket.roomName).emit('user-disconnected', socket.id);
+    }
   });
 });
 

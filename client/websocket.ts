@@ -2,18 +2,23 @@
 
 
 import { DrawEventData, DrawAction, User, Cursor } from "./types.js";
-import { ctx, canvas, performDraw, drawCursors } from "./canvas.js";
+import {  performDraw, drawCursors } from "./canvas.js";
 
 
 declare const io: any;
 
-//  Socket Initialization 
-export const socket = io();
+// Get room from URL query
+const roomQuery = new URLSearchParams(window.location.search).get('room');
+export const currentRoom = roomQuery || 'default'; 
 
-socket.on('connect', () => {
-  console.log('Connected to server with ID:', socket.id);
+//  Pass room query to socket
+export const socket = io({
+  query: { room: currentRoom }
 });
 
+socket.on('connect', () => {
+  console.log(`Connected to server with ID: ${socket.id} in room: ${currentRoom}`);
+});
 
 //  Socket Emitters 
 // These functions are wrappers around socket.emit
@@ -38,7 +43,6 @@ export function emitRedo() {
 
 
 //  Socket Event Listeners 
-// This function is called by main.ts to set up all listeners
 export function registerSocketEvents(
   // UI/User functions
   setSelfUser: (user: User) => void,
@@ -55,6 +59,7 @@ export function registerSocketEvents(
   socket.on('welcome', (data: { self: User, others: User[] }) => {
     setSelfUser(data.self); 
     const cursors = getCursors();
+    cursors.clear();
     for (const user of data.others) {
       cursors.set(user.id, { x: 0, y: 0, color: user.color , name: user.name});
     }

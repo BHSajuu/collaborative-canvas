@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Collaborative Canvas - Lobby</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  
+  <div class="lobby-container">
+    <h1>Collaborative Canvas</h1>
+    <p>Join an existing room or create a new one to start drawing.</p>
+
+    <div class="room-form">
+      <h2>Create a New Room</h2>
+      <form id="create-room-form">
+        <input 
+          type="text" 
+          id="room-name-input" 
+          placeholder="Enter new room name" 
+          required 
+        />
+        <button type="submit">Create & Join</button>
+      </form>
+    </div>
+
+    <div class="room-list">
+      <h2>Active Rooms</h2>
+      <ul id="active-rooms-list">
+        <li>Loading...</li>
+      </ul>
+    </div>
+  </div>
+
+  <script type_ ="module" src="lobby.js"></script>
+</body>
+</html>

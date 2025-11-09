@@ -1,5 +1,4 @@
 
-
 export interface DrawEventData {
   fromX: number;
   fromY: number;
@@ -17,22 +16,44 @@ export interface DrawAction {
   events: DrawEventData[];
 }
 
-// Server State
-const actionHistory: DrawAction[] = [];
-const redoStack: DrawAction[] = [];
-const activeActions = new Map<string, DrawAction>();
 
+// Define the state for a single room
+interface RoomState {
+  actionHistory: DrawAction[];
+  redoStack: DrawAction[];
+  activeActions: Map<string, DrawAction>;
+}
+
+// Store all room states in a Map
+const roomStates = new Map<string, RoomState>();
 
 // State Management Functions
 /**
+ * Helper function to get the state for a room,
+ * or create it if it doesn't exist.
+ */
+function getRoomState(roomName: string): RoomState {
+  if (!roomStates.has(roomName)) {
+    // Create a new, blank state for this room
+    roomStates.set(roomName, {
+      actionHistory: [],
+      redoStack: [],
+      activeActions: new Map<string, DrawAction>(),
+    });
+  }
+  return roomStates.get(roomName)!;
+}
+
+/**
  * Creates a new, active drawing action for a user.
  */
-export function startUserAction(socketId: string, startEvent: DrawEventData) {
+export function startUserAction(roomName: string, socketId: string, startEvent: DrawEventData) {
+  const state = getRoomState(roomName);
   const newAction: DrawAction = {
     id: `${socketId}-${Date.now()}`,
-    events: [startEvent], // Start the action with its first event
+    events: [startEvent],
   };
-  activeActions.set(socketId, newAction);
+  state.activeActions.set(socketId, newAction);
 }
 
 /**
@@ -40,24 +61,24 @@ export function startUserAction(socketId: string, startEvent: DrawEventData) {
  * This clears the redo stack.
  * @returns The DrawAction that was just committed.
  */
-export function stopUserAction(socketId: string) {
-  const action = activeActions.get(socketId);
+export function stopUserAction(roomName: string, socketId: string): DrawAction | undefined {
+  const state = getRoomState(roomName);
+  const action = state.activeActions.get(socketId);
   if (action) {
-    // Move from "active" to "history"
-    actionHistory.push(action);
-    activeActions.delete(socketId);
-    
-    // Clear the redo stack, since a new action breaks the redo chain
-    redoStack.length = 0;
+    state.actionHistory.push(action);
+    state.activeActions.delete(socketId);
+    state.redoStack.length = 0; // Clear redo stack for this room
     return action;
   }
+  return undefined;
 }
 
 /**
  * Adds a drawing segment (event) to a user's currently active action.
  */
-export function addUserEvent(socketId: string, data: DrawEventData) {
-  const action = activeActions.get(socketId);
+export function addUserEvent(roomName: string, socketId: string, data: DrawEventData) {
+  const state = getRoomState(roomName);
+  const action = state.activeActions.get(socketId);
   if (action) {
     action.events.push(data);
   }
@@ -67,10 +88,11 @@ export function addUserEvent(socketId: string, data: DrawEventData) {
  * Moves the last action from history to the redo stack.
  * @returns The action that was undone, or undefined if history was empty.
  */
-export function performUndo(): DrawAction | undefined {
-  if (actionHistory.length > 0) {
-    const actionToUndo = actionHistory.pop()!;
-    redoStack.push(actionToUndo);
+export function performUndo(roomName: string): DrawAction | undefined {
+  const state = getRoomState(roomName);
+  if (state.actionHistory.length > 0) {
+    const actionToUndo = state.actionHistory.pop()!;
+    state.redoStack.push(actionToUndo);
     return actionToUndo;
   }
   return undefined;
@@ -80,10 +102,11 @@ export function performUndo(): DrawAction | undefined {
  * Moves the last undone action from the redo stack back to history.
  * @returns The action that was redone, or undefined if the stack was empty.
  */
-export function performRedo(): DrawAction | undefined {
-  if (redoStack.length > 0) {
-    const actionToRedo = redoStack.pop()!;
-    actionHistory.push(actionToRedo);
+export function performRedo(roomName: string): DrawAction | undefined {
+  const state = getRoomState(roomName);
+  if (state.redoStack.length > 0) {
+    const actionToRedo = state.redoStack.pop()!;
+    state.actionHistory.push(actionToRedo);
     return actionToRedo;
   }
   return undefined;
@@ -92,6 +115,18 @@ export function performRedo(): DrawAction | undefined {
 /**
  * Gets the complete, current history of actions.
  */
-export function getActionHistory(): DrawAction[] {
-  return actionHistory;
+export function getActionHistory(roomName: string): DrawAction[] {
+  const state = getRoomState(roomName);
+  return state.actionHistory;
+}
+
+// Function to remove a user's active action if they disconnect mid-draw
+export function clearActiveAction(socketId: string) {
+  // We have to check all rooms, as we don't know which room the user was in
+  for (const state of roomStates.values()) {
+    if (state.activeActions.has(socketId)) {
+      state.activeActions.delete(socketId);
+      break;
+    }
+  }
 }

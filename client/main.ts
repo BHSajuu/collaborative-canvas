@@ -7,12 +7,19 @@ import {
   emitCursorMove, 
   emitUndo, 
   emitRedo,
-  registerSocketEvents 
+  registerSocketEvents,
+  currentRoom
 } from "./websocket.js";
 
 const CANVAS_BACKGROUND = '#FFFFFF';
 
 window.addEventListener('load', () => {
+  
+  // Get room display element 
+  const roomNameDisplay = document.getElementById('room-name-display') as HTMLHeadingElement;
+  if (roomNameDisplay) {
+    roomNameDisplay.textContent = `Room: ${currentRoom}`;
+  }
 
   // Get UI Elements 
   const colorPicker = document.getElementById('color-picker') as HTMLInputElement;
