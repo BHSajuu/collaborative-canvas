@@ -2,11 +2,12 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "target": "ES2020",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "lib": ["ES2020"],
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "lib": ["ES2020", "DOM"],
     "outDir": "./dist",
-    "rootDir": "./server"
+    "rootDir": "./server",
+    "resolveJsonModule": true
   },
   "include": ["server/**/*"],
   "exclude": ["node_modules", "dist", "client"]
