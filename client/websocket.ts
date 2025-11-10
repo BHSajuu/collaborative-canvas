@@ -45,6 +45,10 @@ export function emitDrawShape(data: DrawEventData) {
   socket.emit('draw-shape', data);
 }
 
+export function emitClearCanvas() {
+  socket.emit('clear-canvas');
+}
+
 
 //  Socket Event Listeners 
 export function registerSocketEvents(
@@ -56,7 +60,8 @@ export function registerSocketEvents(
   setHistory: (history: DrawAction[]) => void,
   addCommittedAction: (action: DrawAction) => void,
   undoActionById: (actionId: string) => void,
-  redoAction: (action: DrawAction) => void
+  redoAction: (action: DrawAction) => void,
+  clearCanvas: () => void 
 ) {
 
   // User/Cursor Listeners
@@ -119,5 +124,10 @@ export function registerSocketEvents(
   //  When a redo happens
   socket.on('perform-redo', (action: DrawAction) => {
     redoAction(action); // Re-draw one action and save snapshot
+  });
+
+  // When a clear event happens
+  socket.on('perform-clear', () => {
+    clearCanvas(); // Call the function from main.ts
   });
 }

@@ -224,3 +224,17 @@ export function clearActiveAction(socketId: string) {
     }
   }
 }
+
+/**
+ * Clears all drawing history for a room.
+ */
+export async function performClear(roomName: string): Promise<void> {
+  const state = await getRoomState(roomName); 
+  state.actionHistory.length = 0;
+  state.redoStack.length = 0;
+  // We can also clear active actions, though they wouldn't be saved anyway
+  state.activeActions.clear();
+  
+  await saveRoomState(roomName, state);  
+  console.log(`Cleared state for room: ${roomName}`);
+}

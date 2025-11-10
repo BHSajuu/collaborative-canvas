@@ -16,6 +16,7 @@ import {
   getActionHistory,
   clearActiveAction,
   commitShapeAction,
+  performClear,
 } from './drawing-state';
 
 
@@ -94,7 +95,7 @@ io.on('connection', async (socket: SocketWithRoom) => {
   const newUser: User = { id: socket.id, color: color, name: newUserName };
   activeUsers.set(socket.id, newUser);
 
-  // --- NEW: Get users *only in the same room* ---
+  // Get users only in the same room
   const socketsInRoom = await io.in(roomName).fetchSockets();
   const socketIdsInRoom = new Set(socketsInRoom.map(s => s.id));
   
@@ -102,7 +103,7 @@ io.on('connection', async (socket: SocketWithRoom) => {
     user => socketIdsInRoom.has(user.id) && user.id !== socket.id
   );
 
-  // Send a 'welcome' event to the new user
+  // Send a welcome event to the new user
  socket.emit('welcome', {
     self: newUser,
     others: othersInRoom,
@@ -164,6 +165,16 @@ io.on('connection', async (socket: SocketWithRoom) => {
       // add it to their local history and save the snapshot.
       io.to(socket.roomName).emit('action-committed', committedAction);
     }
+  });
+
+  // ADDED THIS LISTENER 
+  socket.on('clear-canvas', async () => {
+    if (!socket.roomName) return;
+    
+    await performClear(socket.roomName);
+    
+    // Broadcast to everyone in the room (including sender)
+    io.to(socket.roomName).emit('perform-clear');
   });
 
   socket.on('cursor-move', (data: CursorMoveData) => {

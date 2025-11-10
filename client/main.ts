@@ -7,6 +7,7 @@ import {
   emitCursorMove, 
   emitUndo, 
   emitRedo,
+  emitClearCanvas, 
   registerSocketEvents,
   currentRoom,
   socket 
@@ -31,8 +32,9 @@ window.addEventListener('load', () => {
   const userList = document.getElementById('user-list') as HTMLUListElement;
   const undoButton = document.getElementById('undo-button') as HTMLButtonElement;
   const redoButton = document.getElementById('redo-button') as HTMLButtonElement;
+  const clearButton = document.getElementById('clear-button') as HTMLButtonElement; // <-- GET THE BUTTON
 
- if (!canvas || !colorPicker || !strokeWidth || !strokeValue || !eraserTool || !rectTool || !userList || !undoButton || !redoButton) { 
+ if (!canvas || !colorPicker || !strokeWidth || !strokeValue || !eraserTool || !rectTool || !userList || !undoButton || !redoButton || !clearButton) { // <-- ADD TO CHECK
     console.error('Failed to find one or more UI elements');
     return;
   }
@@ -177,6 +179,24 @@ window.addEventListener('load', () => {
       buildCacheAndRedraw();
     }
   }
+
+
+  /**
+   * Called by websocket on 'perform-clear'.
+   */
+  function clearCanvas() {
+    if (!ctx) return;
+    console.log('Clearing canvas and local state');
+    // Clear the canvas visually
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Clear our local history
+    localActionHistory = [];
+    // Re-initialize the cache with the blank "initial" state
+    stateCache.clear();
+    const initialState = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    stateCache.set(INITIAL_STATE_KEY, initialState);
+  }
+
 
   // UI Logic 
   
@@ -412,6 +432,12 @@ window.addEventListener('load', () => {
   // Button Events 
   undoButton.addEventListener('click', () => { emitUndo(); });
   redoButton.addEventListener('click', () => { emitRedo(); });
+  clearButton.addEventListener('click', () => { 
+
+    if (confirm('Are you sure you want to clear the entire canvas for everyone?')) {
+      emitClearCanvas();
+    }
+  });
 
   // Connect Modules 
   function setSelfUser(user: User) { selfUser = user; }
@@ -424,7 +450,8 @@ window.addEventListener('load', () => {
     setHistory,
     addCommittedAction,
     undoActionById,
-    redoAction
+    redoAction,
+    clearCanvas 
   );
  // Save the initial blank state
   buildCacheAndRedraw();
