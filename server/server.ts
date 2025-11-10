@@ -15,6 +15,7 @@ import {
   performRedo,
   getActionHistory,
   clearActiveAction,
+  commitShapeAction,
 } from './drawing-state';
 
 
@@ -148,6 +149,20 @@ io.on('connection', async (socket: SocketWithRoom) => {
     const redoneAction = await performRedo(socket.roomName);
     if (redoneAction) {
       io.to(socket.roomName).emit('perform-redo', redoneAction);
+    }
+  });
+  
+  socket.on('draw-shape', async (data: DrawEventData) => {
+    if (!socket.roomName) return;
+    
+    // Commit the shape action
+    const committedAction = await commitShapeAction(socket.roomName, socket.id, data);
+    
+    if (committedAction) {
+      // Broadcast this action to all clients (including sender)
+      // We use 'action-committed' so all clients (including sender)
+      // add it to their local history and save the snapshot.
+      io.to(socket.roomName).emit('action-committed', committedAction);
     }
   });
 

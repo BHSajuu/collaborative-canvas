@@ -5,6 +5,7 @@ export interface DrawEventData {
   toY: number;
   color: string;
   lineWidth: number;
+  tool?: Tool;
 }
 
 export interface DrawAction {
@@ -24,4 +25,4 @@ export interface Cursor {
   name: string;
 }
 
-export type Tool = 'brush' | 'eraser';
+export type Tool = 'brush' | 'eraser' | 'rectangle';

@@ -41,6 +41,10 @@ export function emitRedo() {
   socket.emit('redo');
 }
 
+export function emitDrawShape(data: DrawEventData) {
+  socket.emit('draw-shape', data);
+}
+
 
 //  Socket Event Listeners 
 export function registerSocketEvents(

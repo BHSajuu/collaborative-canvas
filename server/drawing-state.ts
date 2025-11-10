@@ -1,5 +1,6 @@
 import { createClient } from "@vercel/kv";
 
+export type Tool = 'brush' | 'eraser' | 'rectangle';
 
 export interface DrawEventData {
   fromX: number;
@@ -8,6 +9,7 @@ export interface DrawEventData {
   toY: number;
   color: string;
   lineWidth: number;
+  tool?: Tool;
 }
 
 // Action-based History
@@ -141,6 +143,26 @@ export async function stopUserAction(roomName: string, socketId: string): Promis
   }
   return undefined;
 }
+
+/**
+ * Creates and commits a new action for a single-event shape.
+ */
+export async function commitShapeAction(roomName: string, socketId: string, shapeEvent: DrawEventData): Promise<DrawAction | undefined> {
+  const state = await getRoomState(roomName);
+  
+  // A shape action has only one event
+  const newAction: DrawAction = {
+    id: `${socketId}-${Date.now()}`,
+    events: [{ ...shapeEvent, tool: 'rectangle' }], // Ensure tool type is set
+  };
+
+  state.actionHistory.push(newAction);
+  state.redoStack.length = 0; // Clear redo stack
+  await saveRoomState(roomName, state); // Save to DB
+  
+  return newAction;
+}
+
 
 /**
  * Adds a drawing segment (event) to a user's currently active action.

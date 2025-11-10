@@ -2,7 +2,7 @@ import { DrawEventData, Cursor } from "./types.js";
 
 // Get UI Elements 
 export const canvas = document.getElementById('drawing-canvas') as HTMLCanvasElement;
-const cursorCanvas = document.getElementById('cursor-canvas') as HTMLCanvasElement;
+export const cursorCanvas = document.getElementById('cursor-canvas') as HTMLCanvasElement;
 
 if (!canvas || !cursorCanvas) {
   throw new Error("Failed to find canvas elements");
@@ -62,3 +62,24 @@ export function drawCursors(cursors: Map<string, Cursor>) {
     cursorCtx.fillText(cursor.name, cursor.x + 10, cursor.y + 5);
   }
 }
+
+
+/**
+ * This function performs drawing a rectangle.
+ * It's called by both local mouse events and server socket events.
+ */
+export function performDrawRect(data: DrawEventData) {
+  if (!ctx) return;
+
+  ctx.strokeStyle = data.color; 
+  ctx.lineWidth = data.lineWidth; 
+  
+  // Calculate width and height from the two points
+  const width = data.toX - data.fromX;
+  const height = data.toY - data.fromY;
+
+  ctx.beginPath();
+  ctx.rect(data.fromX, data.fromY, width, height);
+  ctx.stroke(); 
+}
+
