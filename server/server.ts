@@ -17,6 +17,8 @@ import {
   clearActiveAction,
   commitShapeAction,
   performClear,
+  persistRoomName,     
+  getRecentInactiveRooms,
 } from './drawing-state';
 
 
@@ -49,17 +51,30 @@ const userColors = [
 // Serve static files from the client directory
 const clientPath = path.join(__dirname, '..', 'client');
 
-app.get('/api/rooms', (req, res) => {
-  const allRooms = io.sockets.adapter.rooms;
-  const publicRooms: string[] = [];
+app.get('/api/room-lists', async (req, res) => {
+  try {
+    const allRooms = io.sockets.adapter.rooms;
+    const activeRoomsSet = new Set<string>();
+  
+    allRooms.forEach((socketIds, roomName) => {
+      // Filter out socket-specific rooms
+      if (!socketIds.has(roomName)) {
+        activeRoomsSet.add(roomName);
+      }
+    });
 
-  allRooms.forEach((socketIds, roomName) => {
-    if (!socketIds.has(roomName)) {
-      publicRooms.push(roomName);
-    }
-  });
+    // Get recent rooms that are not in the active set
+    const inactiveRecentRooms = await getRecentInactiveRooms(activeRoomsSet, 10);
+    
+    res.json({
+      activeRooms: Array.from(activeRoomsSet),
+      inactiveRecentRooms: inactiveRecentRooms
+    });
 
-  res.json(publicRooms);
+  } catch (err) {
+    console.error("Failed to get room lists:", err);
+    res.status(500).json({ error: "Failed to load rooms" });
+  }
 });
 
 app.get('/', (req, res) => {
@@ -89,13 +104,16 @@ io.on('connection', async (socket: SocketWithRoom) => {
   socket.join(roomName);
   console.log(`User ${socket.id} joined room ${roomName}`);
 
+  // Persist room name to sorted set
+  await persistRoomName(roomName);
+
   // User Connection Logic
   const color = userColors[Math.floor(Math.random() * userColors.length)];
   const newUserName = `Guest`;
   const newUser: User = { id: socket.id, color: color, name: newUserName };
   activeUsers.set(socket.id, newUser);
 
-  // Get users only in the same room
+  //  Get users only in the same room
   const socketsInRoom = await io.in(roomName).fetchSockets();
   const socketIdsInRoom = new Set(socketsInRoom.map(s => s.id));
   
@@ -167,7 +185,6 @@ io.on('connection', async (socket: SocketWithRoom) => {
     }
   });
 
-  // ADDED THIS LISTENER 
   socket.on('clear-canvas', async () => {
     if (!socket.roomName) return;
     
@@ -188,7 +205,7 @@ io.on('connection', async (socket: SocketWithRoom) => {
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
     activeUsers.delete(socket.id);
-    clearActiveAction(socket.id); // NEW
+    clearActiveAction(socket.id); 
     
     // Broadcast disconnection to all rooms the user *might* have been in
     // (A more robust solution would be to track all rooms a user is in)

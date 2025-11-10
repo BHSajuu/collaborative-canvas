@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale-1.0">
   <title>Collaborative Canvas - Lobby</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -12,7 +12,7 @@
     <h1>Collaborative Canvas</h1>
     <p>Join an existing room or create a new one to start drawing.</p>
 
-    <div class="room-form">
+    <div class="lobby-section room-form">
       <h2>Create a New Room</h2>
       <form id="create-room-form">
         <input 
@@ -21,18 +21,37 @@
           placeholder="Enter new room name" 
           required 
         />
-        <button type="submit">Create & Join</button>
+        <button type="submit" class="button button-primary">Create & Join</button>
       </form>
     </div>
 
-    <div class="room-list">
-      <h2>Active Rooms</h2>
-      <ul id="active-rooms-list">
-        <li>Loading...</li>
-      </ul>
+    <div class="lobby-section">
+      <h2>Join a Room</h2>
+      
+      <div class="room-lists-container">
+        
+        <div class="room-list-column">
+          <h3>🟢 Active Rooms</h3>
+          <ul id="active-rooms-list">
+            <li class.="list-loader-container">
+              <div class="list-loader"><div class="loader"></div></div>
+            </li>
+          </ul>
+        </div>
+        
+        <div class="room-list-column">
+          <h3>🕓 Recent Rooms</h3>
+          <ul id="inactive-rooms-list">
+            <li class="list-loader-container">
+              <div class="list-loader"><div class="loader"></div></div>
+            </li>
+          </ul>
+        </div>
+
+      </div>
     </div>
   </div>
 
-  <script type_ ="module" src="lobby.js"></script>
+  <script type="module" src="lobby.js"></script>
 </body>
 </html>

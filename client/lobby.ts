@@ -1,4 +1,4 @@
-// --- Slugify function to make room names URL-safe ---
+// Slugify function to make room names URL-safe
 function slugify(text: string): string {
   return text
     .toString()
@@ -9,7 +9,7 @@ function slugify(text: string): string {
     .replace(/--+/g, '-');     // Replace multiple - with single -
 }
 
-// --- Main Form Handling ---
+// Main Form Handling
 const form = document.getElementById('create-room-form');
 const input = document.getElementById('room-name-input') as HTMLInputElement;
 
@@ -22,42 +22,67 @@ form?.addEventListener('submit', (e) => {
   }
 });
 
-// --- Fetch and Display Active Rooms ---
-const roomList = document.getElementById('active-rooms-list');
+// Fetch and Display Active Rooms
+const activeRoomList = document.getElementById('active-rooms-list');
+const inactiveRoomList = document.getElementById('inactive-rooms-list');
+
+/**
+ * Helper to render a list of rooms to a UL element
+ */
+function renderRoomList(listElement: HTMLElement | null, rooms: string[], emptyMessage: string) {
+  if (!listElement) return;
+
+  // Clear the "Loading..." message or previous content
+  listElement.innerHTML = '';
+
+  if (rooms.length === 0) {
+    listElement.innerHTML = `<li class="empty-list-message">${emptyMessage}</li>`;
+    return;
+  }
+
+  // Populate the list with links
+  rooms.forEach(room => {
+    const li = document.createElement('li');
+    const a = document.createElement('a');
+    a.href = `/index.html?room=${room}`;
+    a.textContent = room;
+    li.appendChild(a);
+    listElement.appendChild(li);
+  });
+}
 
 async function fetchAndDisplayRooms() {
-  if (!roomList) return;
+  if (!activeRoomList || !inactiveRoomList) return;
 
   try {
-    const response = await fetch('/api/rooms');
+    // Fetch from the new endpoint
+    const response = await fetch('/api/room-lists');
     if (!response.ok) {
       throw new Error('Failed to fetch rooms');
     }
-    const rooms: string[] = await response.json();
+    
+    // Expect the new data structure
+    const data: { activeRooms: string[], inactiveRecentRooms: string[] } = await response.json();
 
-    // Clear the "Loading..." message
-    roomList.innerHTML = '';
-
-    if (rooms.length === 0) {
-      roomList.innerHTML = '<li>No active rooms. Create one!</li>';
-      return;
-    }
-
-    // Populate the list with links
-    rooms.forEach(room => {
-      const li = document.createElement('li');
-      const a = document.createElement('a');
-      a.href = `/index.html?room=${room}`;
-      a.textContent = room;
-      li.appendChild(a);
-      roomList.appendChild(li);
-    });
+    // Render both lists
+    renderRoomList(
+      activeRoomList, 
+      data.activeRooms, 
+      "No active rooms. Create one!"
+    );
+    
+    renderRoomList(
+      inactiveRoomList, 
+      data.inactiveRecentRooms, 
+      "No recent rooms found."
+    );
 
   } catch (err) {
     console.error(err);
-    roomList.innerHTML = '<li>Error loading rooms.</li>';
+    activeRoomList.innerHTML = '<li class="empty-list-message">Error loading rooms.</li>';
+    inactiveRoomList.innerHTML = '<li class="empty-list-message">Error loading rooms.</li>';
   }
 }
 
-// --- Run on page load ---
+// Run on page load
 fetchAndDisplayRooms();

@@ -17,10 +17,10 @@ if (!ctx || !cursorCtx) {
 }
 
 // Set canvas size
-canvas.width = 800;
-canvas.height = 600;
-cursorCanvas.width = 800;
-cursorCanvas.height = 600;
+canvas.width = 1000;  
+canvas.height = 700;  
+cursorCanvas.width = 1000; 
+cursorCanvas.height = 700; 
 
 /**
  * This function performs the actual drawing on the canvas.
@@ -43,7 +43,7 @@ export function performDraw(data: DrawEventData) {
 // Cursor Drawing Function 
 export function drawCursors(cursors: Map<string, Cursor>) {
   if(!cursorCtx) return;
-  // Clear the *entire* cursor canvas
+  // Clear the entire cursor canvas
   cursorCtx.clearRect(0, 0, cursorCanvas.width, cursorCanvas.height);
 
   // Draw each cursor
@@ -82,4 +82,3 @@ export function performDrawRect(data: DrawEventData) {
   ctx.rect(data.fromX, data.fromY, width, height);
   ctx.stroke(); 
 }
-

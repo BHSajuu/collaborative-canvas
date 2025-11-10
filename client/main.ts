@@ -7,7 +7,7 @@ import {
   emitCursorMove, 
   emitUndo, 
   emitRedo,
-  emitClearCanvas, 
+  emitClearCanvas,
   registerSocketEvents,
   currentRoom,
   socket 
@@ -22,24 +22,32 @@ window.addEventListener('load', () => {
   if (roomNameDisplay) {
     roomNameDisplay.textContent = `Room: ${currentRoom}`;
   }
+  
+  // NEW: Get Loader
+  const pageLoader = document.getElementById('page-loader') as HTMLDivElement;
 
   // Get UI Elements 
   const colorPicker = document.getElementById('color-picker') as HTMLInputElement;
   const strokeWidth = document.getElementById('stroke-width') as HTMLInputElement;
   const strokeValue = document.getElementById('stroke-value') as HTMLSpanElement;
+  const brushTool = document.getElementById('brush-tool') as HTMLButtonElement; 
   const eraserTool = document.getElementById('eraser-tool') as HTMLButtonElement;
   const rectTool = document.getElementById('rect-tool') as HTMLButtonElement; 
   const userList = document.getElementById('user-list') as HTMLUListElement;
   const undoButton = document.getElementById('undo-button') as HTMLButtonElement;
   const redoButton = document.getElementById('redo-button') as HTMLButtonElement;
-  const clearButton = document.getElementById('clear-button') as HTMLButtonElement; // <-- GET THE BUTTON
+  const clearButton = document.getElementById('clear-button') as HTMLButtonElement;
+  const leaveRoomButton = document.getElementById('leave-room-button') as HTMLButtonElement; 
 
- if (!canvas || !colorPicker || !strokeWidth || !strokeValue || !eraserTool || !rectTool || !userList || !undoButton || !redoButton || !clearButton) { // <-- ADD TO CHECK
+ if (!canvas || !colorPicker || !strokeWidth || !strokeValue || !brushTool || !eraserTool || !rectTool || !userList || !undoButton || !redoButton || !clearButton || !leaveRoomButton || !pageLoader) { // <-- UPDATED CHECK
     console.error('Failed to find one or more UI elements');
+    // Hide loader even if error, so user isn't stuck
+    if(pageLoader) pageLoader.style.display = 'none';
     return;
   }
   if (!ctx || !cursorCtx) {
     console.error('Canvas contexts not found');
+    if(pageLoader) pageLoader.style.display = 'none';
     return;
   }
 
@@ -62,9 +70,7 @@ window.addEventListener('load', () => {
   
   let selfUser: User | null = null;
   const cursors = new Map<string, Cursor>();
-
-  colorPicker.classList.add('active');
-
+  
   // State Management Functions 
   /**
    * Clears canvas and redraws everything from the local history.
@@ -102,6 +108,9 @@ window.addEventListener('load', () => {
   function setHistory(history: DrawAction[]) {
     localActionHistory = history;
     buildCacheAndRedraw();
+    
+    // --- NEW: Hide loader once history is drawn ---
+    pageLoader.style.display = 'none';
   }
   
   /**
@@ -180,7 +189,6 @@ window.addEventListener('load', () => {
     }
   }
 
-
   /**
    * Called by websocket on 'perform-clear'.
    */
@@ -207,12 +215,16 @@ window.addEventListener('load', () => {
   function setActiveTool(tool: Tool) {
     currentTool = tool;
     
+    // Deactivate all tool buttons
+    brushTool.classList.remove('active');
     eraserTool.classList.remove('active');
     colorPicker.classList.remove('active');
     rectTool.classList.remove('active');
 
+    // Activate the selected one
     if (tool === 'brush') {
-      colorPicker.classList.add('active');
+      brushTool.classList.add('active');
+      colorPicker.classList.add('active'); // Also highlight color picker
       colorPicker.value = lastBrushColor;
     } else if (tool === 'eraser') {
       eraserTool.classList.add('active');
@@ -224,7 +236,10 @@ window.addEventListener('load', () => {
     lastBrushColor = colorPicker.value;
     setActiveTool('brush');
   });
-  colorPicker.addEventListener('click', () => {
+  colorPicker.addEventListener('click', () => { // Also set brush active on click
+    setActiveTool('brush');
+  });
+  brushTool.addEventListener('click', () => { 
     setActiveTool('brush');
   });
   eraserTool.addEventListener('click', () => {
@@ -233,6 +248,9 @@ window.addEventListener('load', () => {
   rectTool.addEventListener('click', () => { 
     setActiveTool('rectangle');
   });
+
+  // Set brush as default active tool on load
+  setActiveTool('brush');
 
   function updateUserListUI() {
     userList.innerHTML = ''; // Clear the list
@@ -433,10 +451,15 @@ window.addEventListener('load', () => {
   undoButton.addEventListener('click', () => { emitUndo(); });
   redoButton.addEventListener('click', () => { emitRedo(); });
   clearButton.addEventListener('click', () => { 
-
     if (confirm('Are you sure you want to clear the entire canvas for everyone?')) {
       emitClearCanvas();
     }
+  });
+
+  leaveRoomButton.addEventListener('click', () => {
+    // Show loader as we transition
+    pageLoader.style.display = 'flex';
+    window.location.href = '/lobby.html';
   });
 
   // Connect Modules 
@@ -451,8 +474,7 @@ window.addEventListener('load', () => {
     addCommittedAction,
     undoActionById,
     redoAction,
-    clearCanvas 
+    clearCanvas
   );
- // Save the initial blank state
-  buildCacheAndRedraw();
+
 });

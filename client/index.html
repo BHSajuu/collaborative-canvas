@@ -7,21 +7,41 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Real-Time Drawing Canvas</h1>
-  <h2 id="room-name-display"></h2>
+
+  <div id="page-loader" class="loader-overlay">
+    <div class="loader"></div>
+  </div>
+
+  <div class="header-bar">
+    <h2 id="room-name-display">Loading Room...</h2>
+    <button id="leave-room-button" class="button button-danger">🫸 Leave Room</button>
+  </div>
+  
   <div class="toolbar">
-    <label for="color-picker">Color:</label>
-    <input type="color" id="color-picker" value="#000000">
+    <div class="tool-group">
+      <label for="color-picker">Color:</label>
+      <input type="color" id="color-picker" value="#000000">
+    </div>
     
-    <button id="eraser-tool" class="tool-button" title="Eraser Tool">✏️</button>
-    <button id="rect-tool" class="tool-button" title="Rectangle Tool">■</button>
+    <div class="tool-group">
+      <label>Tools:</label>
+      <button id="brush-tool" class="tool-button" title="Brush Tool">🧹</button>
+      <button id="eraser-tool" class="tool-button" title="Eraser Tool">✏️</button>
+      <button id="rect-tool" class="tool-button" title="Rectangle Tool">🔳</button>
+    </div>
     
-    <label for="stroke-width">Width:</label>
-    <input type="range" id="stroke-width" min="1" max="50" value="5">
-    <span id="stroke-value">5</span>
-    <button id="undo-button" class="tool-button" title="Undo">↩️</button>
-    <button id="redo-button" class="tool-button" title="Redo">↪️</button>
-    <button id="clear-button" class="tool-button" title="Clear Canvas">🗑️</button>
+    <div class="tool-group">
+      <label for="stroke-width">Width:</label>
+      <input type="range" id="stroke-width" min="1" max="50" value="5">
+      <span id="stroke-value">5</span>
+    </div>
+
+    <div class="tool-group">
+      <label>History:</label>
+      <button id="undo-button" class="tool-button" title="Undo">↩️</button>
+      <button id="redo-button" class="tool-button" title="Redo">↪️</button>
+      <button id="clear-button" class="tool-button" title="Clear Canvas">🗑️</button>
+    </div>
   </div>
   
   <div class="main-content">

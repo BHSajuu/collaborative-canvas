@@ -41,6 +41,9 @@ function getRoomKey(roomName: string): string {
   return `room:${safeRoomName}`;
 }
 
+// Define a key for our sorted set of all rooms
+const ALL_ROOMS_KEY = 'known_rooms';
+
 const roomStates = new Map<string, RoomState>();
 
 // State Management Functions
@@ -237,4 +240,47 @@ export async function performClear(roomName: string): Promise<void> {
   
   await saveRoomState(roomName, state);  
   console.log(`Cleared state for room: ${roomName}`);
+}
+
+//  NEW FUNCTIONS 
+
+/**
+ * Adds a room to the persistent set of known rooms, scored by the current time.
+ * This updates the "last joined" timestamp every time someone joins.
+ */
+export async function persistRoomName(roomName: string) {
+  try {
+    await kv.zadd(ALL_ROOMS_KEY, { score: Date.now(), member: roomName });
+  } catch (err) {
+    console.error(`Failed to persist room name ${roomName}:`, err);
+  }
+}
+
+/**
+ * Fetches the 10 most recently joined rooms that are not currently active.
+ */
+export async function getRecentInactiveRooms(activeRooms: Set<string>, limit: number = 10): Promise<string[]> {
+  try {
+    // Fetch a bit more than the limit, in case some are active
+    const bufferLimit = limit + 5; 
+    
+    // Fetch the most recent rooms from the sorted set
+    const recentRooms = await kv.zrange(ALL_ROOMS_KEY, 0, bufferLimit - 1, { rev: true });
+    
+    const inactiveRecentRooms: string[] = [];
+    
+    for (const room of recentRooms) {
+      if (typeof room === 'string' && !activeRooms.has(room)) {
+        inactiveRecentRooms.push(room);
+      }
+      if (inactiveRecentRooms.length >= limit) {
+        break;
+      }
+    }
+    return inactiveRecentRooms;
+
+  } catch (err) {
+    console.error('Failed to get recent rooms:', err);
+    return [];
+  }
 }
