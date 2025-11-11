@@ -4,7 +4,7 @@ A multi-user, real-time drawing application built with TypeScript, Node.js, and 
 
 ---
 
-## Features
+## 🌟 Features
 
 ### Core Requirements
 - Drawing tools: Brush, Eraser, Color Picker, and Stroke Width adjuster.
@@ -22,7 +22,7 @@ A multi-user, real-time drawing application built with TypeScript, Node.js, and 
 
 ---
 
-## Tech Stack
+## 🛠️ Tech Stack
 - **Frontend:** TypeScript, HTML Canvas, CSS
 - **Backend:** Node.js, Express
 - **Real-time:** Socket.io
@@ -31,11 +31,11 @@ A multi-user, real-time drawing application built with TypeScript, Node.js, and 
 
 ---
 
-## Setup
+## 🚀 Setup and Running Locally
 
 ### 1. Install dependencies
 ```bash
-git clone https://github.com/your-username/collaborative-canvas.git
+git clone https://github.com/BHSajuu/collaborative-canvas.git
 cd collaborative-canvas
 npm install
 ```
@@ -63,37 +63,32 @@ Open http://localhost:3000.
 
 ---
 
-## Testing Multiple Users
-- Open the app in two browser windows.
-- Join the same room.
-- Draw in one window and verify real-time sync in the other.
-- Test undo/redo and clear actions across both.
+## 🧪 How to Test with Multiple Users
+- Open the app in browser windows.
+- You will see the lobby. Create a new room (e.g., "test-room"). You will be redirected to the canvas.
+- Open a second browser window and open the app again.
+- You will see "test-room" in the "Active Rooms" list. Click it to join.
+- Draw in one window. You should see the drawing, cursor, and user list update in the other window instantly.
+- Test the Undo/Redo and Clear Canvas buttons to ensure they update both clients.
 
 ---
 
 ## Known Limitations
-- "Last write wins" conflict resolution.
-- High event frequency during drawing (could be throttled).
-- Minimal UI reconnection feedback.
-
+- Conflict Resolution: The current conflict resolution strategy is a simple "last write wins" event stream. If two users draw in the exact same spot at the exact same millisecond, the server will just process the events as they arrive. This is sufficient for this application but is not as robust as OT or CRDTs for complex overlaps.
+- Event Throttling: Drawing events are sent on every mouse move (draw-event), which can be network-intensive. A more optimized solution might batch or throttle these events.
+- Error Handling: Client-side error handling is minimal. If the WebSocket connection is lost, the user is not given a clear "reconnecting..." message.
 ---
 
 ## Time Spent (example)
 | Task | Time |
 | --- | --- |
 | Setup & Architecture | 4 hrs |
-| Canvas + WebSockets | 6 hrs |
-| Undo/Redo & Sync Logic | 5 hrs |
+| Canvas + WebSockets | 9 hrs |
+| Undo/Redo & Sync Logic | 6 hrs |
 | Persistence (KV) | 2 hrs |
 | UI Work | 3 hrs |
-| **Total** | ~20 hrs |
+| **Total** | ~24 hrs |
 
 ---
 
-## Project Structure
-| Folder | Description |
-| --- | --- |
-| `/client` | Frontend canvas & UI logic |
-| `/server` | Backend WebSocket + API logic |
-| `/server/drawing-state.ts` | Manages KV persistence |
 
