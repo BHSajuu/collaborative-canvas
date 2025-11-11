@@ -3,6 +3,7 @@
 A multi-user, real-time drawing application built with TypeScript, Node.js, and WebSockets. Multiple users can join named rooms and draw simultaneously on a shared canvas. Drawings, cursors, and actions are synchronized in real time.
 
 ---
+live link:- https://collaborative-canvas-production-4c99.up.railway.app/lobby.html
 
 ## 🌟 Features
 
