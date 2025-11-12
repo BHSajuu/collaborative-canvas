@@ -2,38 +2,46 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale-1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Collaborative Canvas - Lobby</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   
   <div class="lobby-container">
-    <h1>Collaborative Canvas</h1>
-    <p>Join an existing room or create a new one to start drawing.</p>
+    <header class="lobby-header">
+      <h1>Collaborative Canvas</h1>
+      <p>Join, create, and draw together in real-time.</p>
+    </header>
 
-    <div class="lobby-section room-form">
+    <div class="lobby-section create-room-section">
       <h2>Create a New Room</h2>
-      <form id="create-room-form">
+      <form id="create-room-form" class="room-form">
         <input 
           type="text" 
           id="room-name-input" 
           placeholder="Enter new room name" 
           required 
         />
-        <button type="submit" class="button button-primary">Create & Join</button>
+        <button type="submit" class="button button-primary">
+          <span class="button-icon">✨</span>
+          Create & Join
+        </button>
       </form>
     </div>
 
-    <div class="lobby-section">
-      <h2>Join a Room</h2>
+    <div class="lobby-section join-room-section">
+      <h2>Join an Existing Room</h2>
       
       <div class="room-lists-container">
         
         <div class="room-list-column">
           <h3>🟢 Active Rooms</h3>
-          <ul id="active-rooms-list">
-            <li class.="list-loader-container">
+          <ul id="active-rooms-list" class="room-list">
+            <li class="list-loader-container">
               <div class="list-loader"><div class="loader"></div></div>
             </li>
           </ul>
@@ -41,7 +49,7 @@
         
         <div class="room-list-column">
           <h3>🕓 Recent Rooms</h3>
-          <ul id="inactive-rooms-list">
+          <ul id="inactive-rooms-list" class="room-list">
             <li class="list-loader-container">
               <div class="list-loader"><div class="loader"></div></div>
             </li>
