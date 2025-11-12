@@ -23,7 +23,6 @@ window.addEventListener('load', () => {
     roomNameDisplay.textContent = `Room: ${currentRoom}`;
   }
   
-  // NEW: Get Loader
   const pageLoader = document.getElementById('page-loader') as HTMLDivElement;
 
   // Get UI Elements 
@@ -38,8 +37,24 @@ window.addEventListener('load', () => {
   const redoButton = document.getElementById('redo-button') as HTMLButtonElement;
   const clearButton = document.getElementById('clear-button') as HTMLButtonElement;
   const leaveRoomButton = document.getElementById('leave-room-button') as HTMLButtonElement; 
+  const exportButton = document.getElementById('export-button') as HTMLButtonElement;
 
- if (!canvas || !colorPicker || !strokeWidth || !strokeValue || !brushTool || !eraserTool || !rectTool || !userList || !undoButton || !redoButton || !clearButton || !leaveRoomButton || !pageLoader) { // <-- UPDATED CHECK
+  if (
+    !canvas || 
+    !colorPicker || 
+    !strokeWidth || 
+    !strokeValue || 
+    !brushTool || 
+    !eraserTool || 
+    !rectTool || 
+    !userList || 
+    !undoButton || 
+    !redoButton || 
+    !clearButton || 
+    !leaveRoomButton || 
+    !pageLoader ||
+    !exportButton 
+  ) { 
     console.error('Failed to find one or more UI elements');
     // Hide loader even if error, so user isn't stuck
     if(pageLoader) pageLoader.style.display = 'none';
@@ -461,6 +476,19 @@ window.addEventListener('load', () => {
     pageLoader.style.display = 'flex';
     window.location.href = '/lobby.html';
   });
+
+ 
+  exportButton.addEventListener('click', () => {
+    // Create a temporary link element
+    const link = document.createElement('a');
+    // Set the file name. We use currentRoom (already imported) for a dynamic name
+    link.download = `${currentRoom}-drawing.png`;
+    // Get the canvas data as a Base64 PNG image
+    link.href = canvas.toDataURL('image/png');
+    // Programmatically click the link to trigger the download
+    link.click();
+  });
+
 
   // Connect Modules 
   function setSelfUser(user: User) { selfUser = user; }
